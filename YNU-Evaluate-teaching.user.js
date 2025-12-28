@@ -2,7 +2,8 @@
 // @name         自动评教-YNU
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @updateURL  https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-Evaluate-teaching.js
+// @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-Evaluate-teaching.user.js
+// @downloadURL  https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-Evaluate-teaching.user.js
 // @description  添加按钮，点击后将所有评分选到9分
 // @author       HeLong
 // @match        https://ehall.ynu.edu.cn/jwapp/sys/jwwspj/*default/*

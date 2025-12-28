@@ -2,7 +2,8 @@
 // @name         YNU-SPOC自动答题脚本
 // @namespace    http://tampermonkey.net/
 // @version      1.1
-// @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-SPOC-AutoAnswer.js
+// @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-SPOC-AutoAnswer.user.js
+// @downloadURL  https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-SPOC-AutoAnswer.user.js
 // @description  SPOC课程单元测试自动答题助手，支持顺序答题，集成AI分析功能，无需缓存题库，适用于云南大学等使用SPOC平台的高校。
 // @author       HeLong
 // @match        https://www.icourse163.org/learn/*

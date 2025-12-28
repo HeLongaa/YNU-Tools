@@ -2,7 +2,8 @@
 // @name         答题助手-YNU-新道云
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-XinDaoYun-Test.js
+// @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-XinDaoYun-Test.user.js
+// @downloadURL  https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-XinDaoYun-Test.user.js
 // @description  自动选择并填写答案，支持单选和多选
 // @author       HeLong
 // @match        http://10.50.60.8:8080/rt/*
