@@ -14,6 +14,8 @@
 ### 1. [YNU-评教脚本](YNU-Evaluate-teaching.js)
 自动完成课程评教任务，提高评教效率。
 
+[一键安装](https://openuserjs.org/scripts/HeLongaa/%E8%87%AA%E5%8A%A8%E8%AF%84%E6%95%99-YNU)
+
 **功能特点：**
 - 自动填写评教问卷
 - 批量处理多门课程
@@ -23,6 +25,7 @@
 ### 2. [YNU-创新创业课程测试脚本](YNU-XinDaoYun-Test.js)
 辅助完成新道云平台创新创业课程的在线测试。
 
+[一键安装](https://openuserjs.org/scripts/HeLongaa/%E7%AD%94%E9%A2%98%E5%8A%A9%E6%89%8B-YNU-%E6%96%B0%E9%81%93%E4%BA%91)
 **功能特点：**
 - 自动化测试流程
 - 支持新道云平台
@@ -31,6 +34,8 @@
 
 ### 3. [YNU-SPOC自动答题脚本](YNU-SPOC-AutoAnswer.js)
 基于 AI 的 SPOC 平台自动答题工具。
+
+[一键安装](https://openuserjs.org/scripts/HeLongaa/YNU-SPOC%E8%87%AA%E5%8A%A8%E7%AD%94%E9%A2%98%E8%84%9A%E6%9C%AC)
 
 **功能特点：**
 - AI 智能答题
