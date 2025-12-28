@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YNU-SPOC自动答题脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @updateURL    https://raw.githubusercontent.com/HeLongaa/YNU-Tools/main/YNU-SPOC-AutoAnswer.js
 // @description  SPOC课程单元测试自动答题助手，支持顺序答题，集成AI分析功能，无需缓存题库，适用于云南大学等使用SPOC平台的高校。
 // @author       HeLong
@@ -26,6 +26,37 @@
         RETRY_DELAY: 2000,
         SELECT_DELAY: 2000,
         OPTION_DELAY: 500 
+    };
+
+    // 常量定义
+    const CONSTANTS = {
+        QUESTION_TYPES: {
+            SINGLE: 'single',
+            MULTIPLE: 'multiple',
+            JUDGE: 'judge',
+            UNKNOWN: 'unknown'
+        },
+        STATUS_TYPES: {
+            CORRECT: 'correct',
+            WRONG: 'wrong',
+            PROCESSING: 'processing'
+        },
+        SELECTORS: {
+            QUESTION: '.m-choiceQuestion',
+            QUESTION_TYPE: '.qaCate',
+            QUESTION_TEXT: '.j-richTxt',
+            OPTIONS: '.choices li',
+            OPTION_TEXT: '.optionCnt',
+            INPUT: 'input[type="radio"], input[type="checkbox"]',
+            CORRECT_ICON: '.u-icon-correct',
+            WRONG_ICON: '.u-icon-wrong'
+        },
+        ICONS: {
+            CORRECT: '✓',
+            WRONG: '✗',
+            PROCESSING: '⏳'
+        },
+        LETTER_A_CODE: 65
     };
 
     // 添加样式
@@ -268,26 +299,19 @@
 
         collectQuestions() {
             return new Promise((resolve) => {
-                this.questions = [];
-
-                // 查找所有题目
-                const questionElements = document.querySelectorAll('.m-choiceQuestion');
-
-                questionElements.forEach((questionEl, index) => {
-                    const question = {
-                        index: index + 1,
-                        element: questionEl,
-                        type: this.getQuestionType(questionEl),
-                        text: this.getQuestionText(questionEl),
-                        options: this.getQuestionOptions(questionEl),
-                        hasDirectAnswer: this.hasDirectAnswer(questionEl),
-                        processed: false,
-                        answer: null,
-                        source: null
-                    };
-
-                    this.questions.push(question);
-                });
+                const questionElements = document.querySelectorAll(CONSTANTS.SELECTORS.QUESTION);
+                
+                this.questions = Array.from(questionElements).map((questionEl, index) => ({
+                    index: index + 1,
+                    element: questionEl,
+                    type: this.getQuestionType(questionEl),
+                    text: this.getQuestionText(questionEl),
+                    options: this.getQuestionOptions(questionEl),
+                    hasDirectAnswer: this.hasDirectAnswer(questionEl),
+                    processed: false,
+                    answer: null,
+                    source: null
+                }));
 
                 console.log(`收集到 ${this.questions.length} 道题目`);
                 this.updateProgress(0);
@@ -297,52 +321,49 @@
         }
 
         hasDirectAnswer(questionEl) {
-            const correctOption = questionEl.querySelector('.u-icon-correct');
-            const wrongOption = questionEl.querySelector('.u-icon-wrong');
-            return !!(correctOption || wrongOption);
+            return !!(questionEl.querySelector(CONSTANTS.SELECTORS.CORRECT_ICON) || 
+                     questionEl.querySelector(CONSTANTS.SELECTORS.WRONG_ICON));
         }
 
         getQuestionType(questionEl) {
-            const cateEl = questionEl.querySelector('.qaCate');
-            if (!cateEl) return 'unknown';
+            const cateEl = questionEl.querySelector(CONSTANTS.SELECTORS.QUESTION_TYPE);
+            if (!cateEl) return CONSTANTS.QUESTION_TYPES.UNKNOWN;
 
             const text = cateEl.textContent.toLowerCase();
-            if (text.includes('单选')) return 'single';
-            if (text.includes('多选')) return 'multiple';
-            if (text.includes('判断')) return 'judge';
-            return 'unknown';
+            const typeMap = {
+                '单选': CONSTANTS.QUESTION_TYPES.SINGLE,
+                '多选': CONSTANTS.QUESTION_TYPES.MULTIPLE,
+                '判断': CONSTANTS.QUESTION_TYPES.JUDGE
+            };
+
+            for (const [key, value] of Object.entries(typeMap)) {
+                if (text.includes(key)) return value;
+            }
+            return CONSTANTS.QUESTION_TYPES.UNKNOWN;
         }
 
         getQuestionText(questionEl) {
-            const textEl = questionEl.querySelector('.j-richTxt');
+            const textEl = questionEl.querySelector(CONSTANTS.SELECTORS.QUESTION_TEXT);
             return textEl ? textEl.textContent.trim().replace(/\s+/g, ' ') : '';
         }
 
         getQuestionOptions(questionEl) {
-            const options = [];
-            const optionEls = questionEl.querySelectorAll('.choices li');
-
-            optionEls.forEach((optionEl, index) => {
-                const textEl = optionEl.querySelector('.optionCnt');
-                const option = {
-                    index: index,
+            const optionEls = questionEl.querySelectorAll(CONSTANTS.SELECTORS.OPTIONS);
+            return Array.from(optionEls).map((optionEl, index) => {
+                const textEl = optionEl.querySelector(CONSTANTS.SELECTORS.OPTION_TEXT);
+                return {
+                    index,
                     element: optionEl,
                     text: textEl ? textEl.textContent.trim() : '',
-                    input: optionEl.querySelector('input[type="radio"], input[type="checkbox"]'),
+                    input: optionEl.querySelector(CONSTANTS.SELECTORS.INPUT),
                     isCorrect: this.isCorrectOption(optionEl)
                 };
-                options.push(option);
             });
-
-            return options;
         }
 
         isCorrectOption(optionEl) {
-            const correctIcon = optionEl.querySelector('.u-icon-correct');
-            const wrongIcon = optionEl.querySelector('.u-icon-wrong');
-
-            if (correctIcon) return true;
-            if (wrongIcon) return false;
+            if (optionEl.querySelector(CONSTANTS.SELECTORS.CORRECT_ICON)) return true;
+            if (optionEl.querySelector(CONSTANTS.SELECTORS.WRONG_ICON)) return false;
             return null;
         }
 
@@ -395,17 +416,13 @@
 
             this.updateStatusItem(statusItem, '正在分析题目...', 'processing');
 
-            // 1. 尝试获取答案
             const answer = await this.getAnswerForQuestion(question);
 
-            // 保存答案
             question.answer = answer.answer;
             question.source = answer.source;
             question.processed = true;
 
             this.updateStatusItem(statusItem, `答案: ${answer.answer} (${answer.source})`, 'processing');
-
-            // 2. 选择答案
             this.updateStatusItem(statusItem, '正在选择答案...', 'processing');
             const selectionResult = await this.selectAnswerWithDetails(question, answer.answer, statusItem);
 
@@ -453,27 +470,19 @@
         }
 
         getDirectAnswer(question) {
-            if (question.type === 'judge') {
-                // 判断题直接找正确答案
-                for (const option of question.options) {
-                    if (option.isCorrect === true) {
-                        return option.index === 0 ? 'A' : 'B';
-                    }
-                }
-            } else {
-                // 选择题
-                const correctLetters = [];
-                question.options.forEach((option, index) => {
-                    if (option.isCorrect === true) {
-                        correctLetters.push(String.fromCharCode(65 + index));
-                    }
-                });
+            const correctOptions = question.options.filter(opt => opt.isCorrect === true);
+            if (correctOptions.length === 0) return null;
 
-                if (correctLetters.length > 0) {
-                    return question.type === 'single' ? correctLetters[0] : correctLetters.sort().join('');
-                }
+            if (question.type === CONSTANTS.QUESTION_TYPES.JUDGE) {
+                return correctOptions[0].index === 0 ? 'A' : 'B';
             }
-            return null;
+
+            const correctLetters = correctOptions.map((opt, idx) => 
+                String.fromCharCode(CONSTANTS.LETTER_A_CODE + question.options.indexOf(opt))
+            ).sort();
+
+            return question.type === CONSTANTS.QUESTION_TYPES.SINGLE ? 
+                   correctLetters[0] : correctLetters.join('');
         }
 
         queryAI(question) {
@@ -548,99 +557,99 @@
         }
 
         parseAIAnswer(answer, type) {
-            // 清理答案
             const cleanAnswer = answer.replace(/[^A-D正确错误]/gi, '').trim();
 
-            if (type === 'judge') {
+            if (type === CONSTANTS.QUESTION_TYPES.JUDGE) {
                 return cleanAnswer.includes('正确') ? 'A' : 'B';
             }
 
-            // 提取字母
             const letters = cleanAnswer.match(/[A-D]/gi);
-            if (!letters || letters.length === 0) return null;
+            if (!letters?.length) return null;
 
-            const uniqueLetters = [...new Set(letters.map(l => l.toUpperCase()))];
-            return type === 'single' ? uniqueLetters[0] : uniqueLetters.sort().join('');
+            const uniqueLetters = [...new Set(letters.map(l => l.toUpperCase()))].sort();
+            return type === CONSTANTS.QUESTION_TYPES.SINGLE ? uniqueLetters[0] : uniqueLetters.join('');
+        }
+
+        async selectJudgeAnswer(question, answer, statusItem) {
+            const isCorrect = answer === 'A';
+            const option = question.options[isCorrect ? 0 : 1];
+            
+            if (option?.input) {
+                option.input.click();
+                this.updateStatusItem(statusItem, `已选择: ${isCorrect ? '正确' : '错误'}`, CONSTANTS.STATUS_TYPES.PROCESSING);
+                return true;
+            }
+            return false;
+        }
+
+        async selectSingleAnswer(answer, question, statusItem) {
+            const optionIndex = answer.charCodeAt(0) - CONSTANTS.LETTER_A_CODE;
+            const option = question.options[optionIndex];
+            
+            if (optionIndex >= 0 && optionIndex < question.options.length && option?.input) {
+                option.input.click();
+                this.updateStatusItem(statusItem, `已选择: ${answer}`, CONSTANTS.STATUS_TYPES.PROCESSING);
+                return true;
+            }
+            return false;
+        }
+
+        async selectMultipleAnswers(answer, question, statusItem) {
+            const answerLetters = answer.split('');
+            let selectedCount = 0;
+
+            for (let i = 0; i < answerLetters.length; i++) {
+                if (this.isPaused) {
+                    await this.waitForResume();
+                    if (!this.isProcessing) return false;
+                }
+
+                const optionIndex = answerLetters[i].charCodeAt(0) - CONSTANTS.LETTER_A_CODE;
+                const option = question.options[optionIndex];
+
+                if (optionIndex >= 0 && optionIndex < question.options.length && 
+                    option?.input && !option.input.checked) {
+                    option.input.click();
+                    selectedCount++;
+
+                    this.updateStatusItem(
+                        statusItem,
+                        `已选择 ${selectedCount}/${answerLetters.length}: ${answerLetters.slice(0, i+1).join('')}`,
+                        CONSTANTS.STATUS_TYPES.PROCESSING
+                    );
+
+                    if (i < answerLetters.length - 1) {
+                        await this.delay(AI_CONFIG.OPTION_DELAY);
+                    }
+                }
+            }
+
+            return selectedCount > 0;
         }
 
         async selectAnswerWithDetails(question, answer, statusItem) {
-            return new Promise(async (resolve) => {
-                try {
-                    let success = false;
+            try {
+                const handlers = {
+                    [CONSTANTS.QUESTION_TYPES.JUDGE]: () => this.selectJudgeAnswer(question, answer, statusItem),
+                    [CONSTANTS.QUESTION_TYPES.SINGLE]: () => this.selectSingleAnswer(answer, question, statusItem),
+                    [CONSTANTS.QUESTION_TYPES.MULTIPLE]: () => this.selectMultipleAnswers(answer, question, statusItem)
+                };
 
-                    if (question.type === 'judge') {
-                        // 判断题
-                        const isCorrect = answer === 'A';
-                        const optionIndex = isCorrect ? 0 : 1;
-                        const option = question.options[optionIndex];
+                const handler = handlers[question.type];
+                return handler ? await handler() : false;
+            } catch (error) {
+                console.error(`选择答案失败:`, error);
+                return false;
+            }
+        }
 
-                        if (option && option.input) {
-                            option.input.click();
-                            success = true;
-                            this.updateStatusItem(statusItem, `已选择: ${isCorrect ? '正确' : '错误'}`, 'processing');
-                        }
-                    } else if (question.type === 'single') {
-                        // 单选题
-                        const answerLetter = answer;
-                        const optionIndex = answerLetter.charCodeAt(0) - 65;
-
-                        if (optionIndex >= 0 && optionIndex < question.options.length) {
-                            const option = question.options[optionIndex];
-                            if (option && option.input) {
-                                option.input.click();
-                                success = true;
-                                this.updateStatusItem(statusItem, `已选择: ${answerLetter}`, 'processing');
-                            }
-                        }
-                    } else if (question.type === 'multiple') {
-                        // 多选题 - 逐个选择
-                        const answerLetters = answer.split('');
-                        let selectedCount = 0;
-
-                        // 逐个选择每个选项
-                        for (let i = 0; i < answerLetters.length; i++) {
-                            if (this.isPaused) {
-                                await this.waitForResume();
-                                if (!this.isProcessing) {
-                                    resolve(false);
-                                    return;
-                                }
-                            }
-
-                            const letter = answerLetters[i];
-                            const optionIndex = letter.charCodeAt(0) - 65;
-
-                            if (optionIndex >= 0 && optionIndex < question.options.length) {
-                                const option = question.options[optionIndex];
-                                if (option && option.input && !option.input.checked) {
-                                    // 点击该选项
-                                    option.input.click();
-                                    selectedCount++;
-
-                                    // 更新状态显示
-                                    this.updateStatusItem(
-                                        statusItem,
-                                        `已选择 ${selectedCount}/${answerLetters.length}: ${answerLetters.slice(0, i+1).join('')}`,
-                                        'processing'
-                                    );
-
-                                    // 每个选项之间等待
-                                    if (i < answerLetters.length - 1) {
-                                        await this.delay(AI_CONFIG.OPTION_DELAY);
-                                    }
-                                }
-                            }
-                        }
-
-                        success = selectedCount > 0;
-                    }
-
-                    resolve(success);
-                } catch (error) {
-                    console.error(`选择答案失败:`, error);
-                    resolve(false);
-                }
-            });
+        getStatusIcon(type) {
+            const iconMap = {
+                [CONSTANTS.STATUS_TYPES.CORRECT]: CONSTANTS.ICONS.CORRECT,
+                [CONSTANTS.STATUS_TYPES.WRONG]: CONSTANTS.ICONS.WRONG,
+                [CONSTANTS.STATUS_TYPES.PROCESSING]: CONSTANTS.ICONS.PROCESSING
+            };
+            return iconMap[type] || CONSTANTS.ICONS.PROCESSING;
         }
 
         createStatusItem(questionIndex, message, type) {
@@ -649,14 +658,11 @@
             statusItem.className = `status-item status-${type}`;
             statusItem.id = `status-item-${questionIndex}`;
             statusItem.innerHTML = `
-                <span class="status-icon">${type === 'correct' ? '✓' : type === 'wrong' ? '✗' : '⏳'}</span>
+                <span class="status-icon">${this.getStatusIcon(type)}</span>
                 <span class="status-text">第${questionIndex}题: ${message}</span>
             `;
             statusList.appendChild(statusItem);
-
-            // 滚动到底部
             statusList.scrollTop = statusList.scrollHeight;
-
             return statusItem;
         }
 
@@ -667,7 +673,7 @@
             const icon = statusItem.querySelector('.status-icon');
             const text = statusItem.querySelector('.status-text');
 
-            icon.textContent = type === 'correct' ? '✓' : type === 'wrong' ? '✗' : '⏳';
+            icon.textContent = this.getStatusIcon(type);
             text.textContent = `第${statusItem.id.split('-')[2]}题: ${message}`;
         }
 
@@ -771,9 +777,9 @@
     // 页面加载完成后初始化
     window.addEventListener('load', () => {
         setTimeout(() => {
-            if (document.querySelector('.m-choiceQuestion')) {
+            if (document.querySelector(CONSTANTS.SELECTORS.QUESTION)) {
                 new AutoAnswer();
-                console.log('单题顺序答题助手已加载（无缓存版）');
+                console.log('答题助手已加载');
             }
         }, 2000);
     });
